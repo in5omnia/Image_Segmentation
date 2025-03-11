@@ -1,3 +1,5 @@
 Test/
 TrainVal/
 .DS_Store
+rtest/
+rtrain/
