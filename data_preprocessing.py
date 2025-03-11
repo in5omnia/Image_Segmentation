@@ -99,9 +99,9 @@ def revert_resize_with_padding(tensor, original_size):
 
 
 
-input_folder = "Dataset_filtered/TrainVal/color"
-labels_folder = "Dataset_filtered/TrainVal/label"
-output_folder = "Resized_Padded"
+input_folder = "../Dataset_filtered/TrainVal/color"
+labels_folder = "../Dataset_filtered/TrainVal/label"
+output_folder = "../Resized_Padded"
 
 # Read all images and extract their sizes
 """for filename in os.listdir(input_folder):
