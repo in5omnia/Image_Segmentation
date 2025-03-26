@@ -3,3 +3,5 @@ TrainVal/
 .DS_Store
 rtest/
 rtrain/
+Train/
+Val/
