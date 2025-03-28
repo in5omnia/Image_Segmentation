@@ -9,3 +9,4 @@ Val/
 *.pytorch
 __pycache__
 *.txt
+*.jpg
