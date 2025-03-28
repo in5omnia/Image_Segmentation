@@ -5,3 +5,7 @@ rtest/
 rtrain/
 Train/
 Val/
+*.png
+*.pytorch
+__pycache__
+*.txt
