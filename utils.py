@@ -113,6 +113,9 @@ def process_batch_forward(batch_images, target_size=512):
     resized_batch = []
     meta_list = []
     for image in batch_images:
+        if image.ndim == 3 and image.shape[0] == 4:  
+            print(f"    Converting RGBA image to RGB image")
+            image = image[:3, ...] # Keep only the first 3 channels (R, G, B)
         image_resized, meta = resize_with_padding(image, target_size)
         resized_batch.append(image_resized)
         meta_list.append(meta)
