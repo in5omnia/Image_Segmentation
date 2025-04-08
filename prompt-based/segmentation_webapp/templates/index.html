@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Segmentation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Interactive Segmentation Tool</h1>
+    <p>Upload an image, select a prompt type, interact with the image below, and click 'Segment'.</p>
+
+    <div class="container">
+        <div class="controls">
+            <label for="imageUpload">Upload Image:</label>
+            <input type="file" id="imageUpload" accept="image/*"><br><br>
+
+            <label>Prompt Type:</label><br>
+            <input type="radio" id="promptPoints" name="promptType" value="points" checked>
+            <label for="promptPoints">Points</label><br>
+            <input type="radio" id="promptBbox" name="promptType" value="bbox">
+            <label for="promptBbox">Bounding Box</label><br>
+            <input type="radio" id="promptScribble" name="promptType" value="scribble">
+            <label for="promptScribble">Scribble</label><br>
+            <input type="radio" id="promptText" name="promptType" value="text">
+            <label for="promptText">Text</label><br>
+
+            <div id="textPromptSection" style="display: none;">
+                <label for="textPrompt">Text Prompt:</label><br>
+                <textarea id="textPrompt" rows="3" cols="30"></textarea><br>
+            </div>
+
+            <button id="segmentBtn">Segment</button>
+            <button id="clearBtn">Clear Prompts</button>
+
+            <p id="status">Status: Waiting for image...</p>
+        </div>
+
+        <div class="image-area">
+            <p>Interaction Area:</p>
+            <!-- Container to overlay canvas on image -->
+            <div id="canvasContainer">
+                 <img id="uploadedImage" src="#" alt="Uploaded Image" style="display: none; max-width: 100%; max-height: 500px;"/>
+                 <!-- Canvas for drawing prompts -->
+                 <canvas id="promptCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="results">
+            <p>Outputs:</p>
+            <div class="output-pair">
+                 <div class="output-image">
+                     <label>Label Output:</label><br>
+                     <img id="outputLabel" src="#" alt="Output Label" style="display: none;"/>
+                 </div>
+                 <div class="output-image">
+                     <label>Mask Output:</label><br>
+                     <img id="outputMask" src="#" alt="Output Mask" style="display: none;"/>
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

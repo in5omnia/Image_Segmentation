@@ -1,0 +1,92 @@
+body {
+    font-family: sans-serif;
+    line-height: 1.6;
+    margin: 20px;
+}
+
+.container {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 20px; /* Space between columns */
+}
+
+.controls {
+    flex: 1; /* Take up available space */
+    min-width: 250px; /* Minimum width */
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.image-area {
+    flex: 2; /* Take up more space */
+    min-width: 300px;
+    position: relative; /* Needed for absolute positioning of canvas */
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 5px;
+    display: flex; /* Use flexbox for alignment */
+    flex-direction: column; /* Stack title and container */
+    align-items: center; /* Center items horizontally */
+}
+
+#canvasContainer {
+    position: relative; /* Crucial for overlay */
+    max-width: 100%; /* Ensure container doesn't overflow */
+    line-height: 0; /* Remove extra space below image/canvas */
+}
+
+
+#promptCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: default; /* Default cursor */
+    /* Background added for debugging canvas position */
+    /* background-color: rgba(0, 255, 0, 0.1); */
+}
+
+.results {
+    flex: 2; /* Take up more space */
+    min-width: 300px;
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 5px;
+}
+.output-pair {
+    display: flex;
+    gap: 15px; /* Space between output images */
+    flex-wrap: wrap; /* Allow wrapping */
+}
+.output-image img {
+    max-width: 100%; /* Ensure output images are responsive */
+    max-height: 400px; /* Limit height */
+    border: 1px solid #eee;
+    margin-top: 5px;
+}
+
+
+button {
+    padding: 8px 15px;
+    margin-top: 10px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+#segmentBtn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+}
+
+#clearBtn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+}
+
+#status {
+    margin-top: 15px;
+    font-weight: bold;
+    min-height: 1.6em; /* Prevent layout shifts */
+}
