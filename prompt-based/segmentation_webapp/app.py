@@ -8,219 +8,276 @@ import base64
 import io
 import logging
 
+
 from prompt_model import SegmentationAutoencoder
 from utils import *
 
-
 # --- Configuration ---
-# Load environment variables if using .env
-# from dotenv import load_dotenv
-# load_dotenv()
-MODEL_PATH ="autoencoder_256_with_aug_noAugEnc_weight2_ce_dice_adamw_64.pytorch" # Default model path
+#MODEL_PATH ="autoencoder_256_with_aug_noAugEnc_weight2_ce_dice_adamw_64.pytorch" # Default model path
+MODEL_PATH = "/Users/beatrizgavilan/Desktop/Assignments/CV/Image_Segmentation/prompt-based/autoencoderSeg_256_withAug_ce_dice_weight2.pytorch"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 INTERPOLATION = 'bilinear'
 TARGET_SIZE = 256
-
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- Placeholder for your Segmentation Model ---
-# Replace this with loading and using your actual trained model
 
 
-# --- Load Model (Load once on startup) ---
+# --- Load Model ---
 try:
-    model = SegmentationAutoencoder(3, num_classes=4).to(DEVICE)
+    model = SegmentationAutoencoder(3, num_classes=4, freeze_encoder=False).to(DEVICE)
     if os.path.exists(MODEL_PATH):
         # Load state dict if your Network class matches the saved structure
         # Load the checkpoint dictionary; move tensors to the correct device
         checkpoint = torch.load(MODEL_PATH, map_location=DEVICE)
         # Load model state
+
         model.load_state_dict(checkpoint["model_state_dict"])
 
-        logger.info(f"Placeholder model initialized. Replace loading logic if using '{MODEL_PATH}'.")
+        logger.info(f"Model succesfully initialized.")
     else:
         logger.warning(f"Model file '{MODEL_PATH}' not found. Using untrained placeholder model.")
     model.eval() # Set to evaluation mode
 except Exception as e:
     logger.error(f"Error loading model: {e}")
-    # Handle error appropriately, maybe exit or use a dummy model
     model = None
 
-# --- Helper Functions (Backend Image Processing) ---
-
+# --- Helper Functions (decode_base64_image, encode_pil_to_base64, create_prompt_mask) ---
+# Keep these exactly as they were in the previous version
 def decode_base64_image(base64_string):
-    """Decodes a base64 string into a PIL Image."""
     if base64_string.startswith('data:image'):
         base64_string = base64_string.split(',')[1]
     image_bytes = base64.b64decode(base64_string)
     image = Image.open(io.BytesIO(image_bytes))
-    return image.convert("RGB") # Ensure RGB format
+    # Check for RGBA and convert if necessary (like the log message indicated)
+    if image.mode == 'RGBA':
+        logger.info("Converting RGBA image to RGB image")
+        image = image.convert("RGB")
+    return image
 
 def encode_pil_to_base64(pil_image, format="PNG"):
-    """Encodes a PIL image into a base64 string."""
     buffered = io.BytesIO()
     pil_image.save(buffered, format=format)
     img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
     return f"data:image/{format.lower()};base64,{img_str}"
 
 def create_prompt_mask(image_size, prompt_type, prompt_data):
-    """Creates a single-channel prompt mask (heatmap) based on prompt type."""
     width, height = image_size
-    mask = Image.new('L', (width, height), 0) # Grayscale mask
-
+    mask = Image.new('L', (width, height), 0)
     try:
         if prompt_type == "points":
-            radius = 20 # Adjust heatmap point radius
-            if not prompt_data: return mask # Empty mask if no points
+            radius = 20
+            if not prompt_data: return mask
             draw = ImageDraw.Draw(mask)
-            for point in prompt_data: # List of {'x': float, 'y': float}
-                x, y = int(point['x']), int(point['y'])
-                draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=255)
+            # Ensure prompt_data is a list here, even if frontend sent just one point
+            if isinstance(prompt_data, dict): # Handle if frontend sent single dict instead of list
+                prompt_data = [prompt_data]
+            for point in prompt_data:
+                if isinstance(point, dict) and 'x' in point and 'y' in point:
+                     x, y = int(point['x']), int(point['y'])
+                     draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=255)
+                else:
+                     logger.warning(f"Skipping invalid point data: {point}")
             mask = mask.filter(ImageFilter.GaussianBlur(radius=radius // 2))
-            logger.info(f"Generated heatmap from {len(prompt_data)} points.")
-
+            logger.info(f"Generated heatmap from points.")
         elif prompt_type == "bbox":
-             # prompt_data expected: {'x': xmin, 'y': ymin, 'width': w, 'height': h}
-             if not prompt_data: return mask
+             if not prompt_data or not all(k in prompt_data for k in ('x','y','width','height')): return mask
              x, y, w, h = int(prompt_data['x']), int(prompt_data['y']), int(prompt_data['width']), int(prompt_data['height'])
              if w > 0 and h > 0:
                  draw = ImageDraw.Draw(mask)
                  draw.rectangle([x, y, x + w, y + h], fill=255)
-                 logger.info(f"Generated mask from bbox: [{x},{y},{x+w},{y+h}].")
-
+                 logger.info(f"Generated mask from bbox.")
         elif prompt_type == "scribble":
-            # prompt_data expected: base64 encoded image of the scribble overlay
             if not prompt_data: return mask
-            scribble_overlay = decode_base64_image(prompt_data).convert('L') # Decode and ensure grayscale
+            # Ensure scribble decoding handles potential RGBA from canvas.toDataURL
+            scribble_img = decode_base64_image(prompt_data) # decode_base64 now handles RGB conversion
+            scribble_overlay = scribble_img.convert('L')
             if scribble_overlay.size != image_size:
-                # Resize scribble if necessary (should ideally match on frontend)
                 scribble_overlay = scribble_overlay.resize(image_size, Image.NEAREST)
-            # Convert scribble to binary mask (assuming black background, non-black scribble)
             mask_array = np.array(scribble_overlay)
-            threshold = 10 # Consider anything not near black as part of the scribble
+            threshold = 10
             binary_mask_array = np.where(mask_array > threshold, 255, 0).astype(np.uint8)
             mask = Image.fromarray(binary_mask_array, mode='L')
             logger.info("Generated mask from scribble.")
-
         elif prompt_type == "text":
-            # Model specific: How to convert text to a spatial mask?
-            # Option 1: Ignore text for spatial mask (use empty mask)
-            # Option 2: Use a separate model (like CLIP) to generate a heatmap (complex)
-            # Option 3: Your model takes text differently (modify model input logic)
             logger.warning("Text prompt received, generating empty spatial mask for this example.")
-            # mask remains empty / black
     except Exception as e:
         logger.error(f"Error creating prompt mask for type {prompt_type}: {e}")
-        # Return empty mask on error
         mask = Image.new('L', (width, height), 0)
-
     return mask
+# --- End Helper Functions ---
+
+
+
+COLOR_MAP = {
+    0: (68.08, 1.24, 84.00),       # Background
+    1: (48.61, 103.80, 141.80),     # Class 1 (e.g., Red)
+    2: (53.04, 183.26, 120.58),     # Class 2 (e.g., Lime Green)
+    3: (253.27, 231.07, 36.70)      # Class 3 (e.g., Blue)
+    # Add more entries if NUM_CLASSES > 4
+}
 
 # --- Flask App Initialization ---
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # --- Flask Routes ---
-
 @app.route('/')
 def index():
-    """Serves the main HTML page."""
     return render_template('index.html')
 
 @app.route('/segment', methods=['POST'])
 def segment_image():
-    """Handles the segmentation request."""
-    if model is None:
-        return jsonify({"error": "Model not loaded"}), 500
-    if not request.is_json:
-        return jsonify({"error": "Request must be JSON"}), 400
+    if model is None: return jsonify({"error": "Model not loaded"}), 500
+    if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
 
     data = request.get_json()
+    # Check for essential fields
     required_fields = ['image_b64', 'prompt_type', 'prompt_data', 'original_width', 'original_height']
     if not all(field in data for field in required_fields):
+        logger.warning(f"Missing fields. Received: {list(data.keys())}")
         return jsonify({"error": "Missing required fields in request"}), 400
+
+    # Get optional label data
+    uploaded_label_b64 = data.get('label_b64', None) # Get label if sent, otherwise None
 
     try:
         # 1. Decode Input Image
-        original_image_b64 = data['image_b64']
-        original_image = decode_base64_image(original_image_b64)
+        original_image = decode_base64_image(data['image_b64'])
         logger.info(f"Received image of size: {original_image.size}")
 
-        # 2. Generate Prompt Mask (Heatmap)
+        # 2. Generate Prompt Mask
         prompt_type = data['prompt_type']
         prompt_data = data['prompt_data']
-        # Use original dimensions reported by frontend for mask generation
         original_size = (data['original_width'], data['original_height'])
         prompt_mask = create_prompt_mask(original_size, prompt_type, prompt_data)
-
-        # Ensure prompt mask has the same size as the input image if needed (resize maybe?)
         if prompt_mask.size != original_image.size:
              logger.warning(f"Resizing prompt mask from {prompt_mask.size} to {original_image.size}")
              prompt_mask = prompt_mask.resize(original_image.size, Image.NEAREST)
 
-
         # 3. Preprocess for Model
-        # Normalize based on your model's training
-        # Example: Simple scaling to [0, 1]
-        img_tensor = TF.to_tensor(original_image)      # C, H, W
-        prompt_tensor = TF.to_tensor(prompt_mask)     # 1, H, W
-
-        # Add batch dimension and move to device
-        img_tensor = img_tensor.unsqueeze(0).to(DEVICE) # B, C, H, W
-        prompt_tensor = prompt_tensor.unsqueeze(0).to(DEVICE) # B, 1, H, W
-
-        # Ensure spatial dimensions match (should be guaranteed by resize above)
+        img_tensor = TF.to_tensor(original_image).unsqueeze(0).to(DEVICE)
+        prompt_tensor = TF.to_tensor(prompt_mask).unsqueeze(0).to(DEVICE)
         assert img_tensor.shape[2:] == prompt_tensor.shape[2:]
+        model_input = torch.cat([img_tensor, prompt_tensor], dim=1)
 
-        # Concatenate image and prompt mask
-        # Input channels = image channels (3) + prompt channels (1)
-        model_input = torch.cat([img_tensor, prompt_tensor], dim=1) # B, 4, H, W
+        # --- SAVE THE INPUT IMAGE ---
+        """OUTPUT_SAVE_DIR = "output_masks"
+        img_pil = None # Initialize
+        try:
+            img_pil = TF.to_pil_image(img_tensor.squeeze(0).cpu())
+            logger.info(f"Converted prediction tensor to PIL image (mode: {img_pil.mode})")
+            try:
+                filename = f"img.png"
+                save_path = os.path.join(OUTPUT_SAVE_DIR, filename)
+                img_pil.save(save_path)
+                logger.info(f"Successfully saved input image to '{save_path}'")
+            except Exception as save_e:
+                # Log error but don't crash the request if saving fails
+                logger.error(f"Failed to save input image to to {OUTPUT_SAVE_DIR}: {save_e}")
+            # --- END SAVING LOGIC ---
+        except TypeError as te:
+             logger.exception(f"TypeError converting tensor to PIL: {te}")
+             return jsonify({"error": f"Internal error converting prediction: {te}"}), 500
+        except Exception as pil_e:
+             logger.exception(f"Error during PIL conversion or saving output mask: {pil_e}")
+             return jsonify({"error": f"Internal error processing output mask: {pil_e}"}), 500
+        # --- END SAVE INPUT IMAGE LOGIC ---"""
 
-
-        # 4. Run Model Inference
+        # 4. Run Model Inference - Expecting ONE output tensor
         with torch.no_grad():
-
-            resized_model_input, meta_list = process_batch_forward(model_input, target_size=TARGET_SIZE)   # resize X for network
+            resized_model_input, meta_list = process_batch_forward(img_tensor, target_size=TARGET_SIZE)   # resize X for network
             resized_model_input = resized_model_input.to(DEVICE)
-                        
-                        # Compute prediction
-            output1_tensor = model(resized_model_input)
-            output1_tensor = process_batch_reverse(output1_tensor, meta_list, interpolation=INTERPOLATION)
+
+            print("resized_model_input.shape", resized_model_input.shape)
+            # Compute prediction
+            model_output = model(resized_model_input)
+            logger.info(f"HEREEEE1 Model output shape: {model_output.shape}")
+
+            model_output = process_batch_reverse(model_output, meta_list, interpolation=INTERPOLATION)
+            arr = np.array(model_output)
+            logger.info(f"HEREEEE Model output shape: {arr.shape}")
+            model_output = model_output[0].argmax(0)
             
-            #output1_tensor = model(model_input) # Expect B, 1, H, W
+            model_output = model_output.to(torch.uint8) # or .byte() 
+            unique_classes = torch.unique(model_output).cpu().numpy()
+            logger.info(f"DEBUG Unique predicted class indices: {unique_classes}")
 
-        #if label.shape[1] == 4 and label.ndim == 4:  
-                #print(f"    Converting original image from RGBA to RGB")
-                #label = label[:, :3, :, :] # Keep only the first 3 channels (R, G, B)
-        #try:
-        #    label = getLabel()
-        #except:
-        label = img_tensor
+            
 
-        # 5. Postprocess Output Tensors
-        # Remove batch dim, move to CPU, convert to PIL
-        # Assumes output tensors are in [0, 1] range (due to Sigmoid)
-        output1_pil = TF.to_pil_image(output1_tensor.squeeze(0).cpu())
-        output2_pil = TF.to_pil_image(label.squeeze(0).cpu())
+        # --- FIX: Handle single model output (direct tensor or list/tuple with one tensor) ---
+        predicted_mask_tensor = None
+        if isinstance(model_output, torch.Tensor):
+            predicted_mask_tensor = model_output # Direct tensor output
+            logger.info("Model returned a single tensor.")
 
-        # 6. Encode Output Images to Base64
-        output1_b64 = encode_pil_to_base64(output1_pil)
-        output2_b64 = encode_pil_to_base64(output2_pil)
+        elif isinstance(model_output, (list, tuple)) and len(model_output) == 1 and isinstance(model_output[0], torch.Tensor):
+            predicted_mask_tensor = model_output[0] # Tensor inside a list/tuple
+            logger.info("Model returned a list/tuple with one tensor.")
+        else:
+             logger.error(f"Unexpected model output type or structure: {type(model_output)}")
+             raise TypeError(f"Model output was not a single tensor or a list/tuple containing one tensor. Got: {type(model_output)}")
+        # --- End FIX ---
+        
+        # --- SAVE THE OUTPUT MASK ---
+        OUTPUT_SAVE_DIR = "output_masks"
+        predicted_mask_pil = None # Initialize
+        try:
+            # Convert indices tensor to numpy array on CPU
+            mask_np = predicted_mask_tensor.cpu().numpy().astype(np.uint8)
+
+            # Create an empty RGB image array
+            height, width = mask_np.shape
+            color_mask_np = np.zeros((height, width, 3), dtype=np.uint8)
+
+            # Apply the color map
+            for class_index, color in COLOR_MAP.items():
+                color_mask_np[mask_np == class_index] = color
+
+            # Convert the numpy color array to a PIL Image
+            predicted_mask_pil = Image.fromarray(color_mask_np, 'RGB') # Use 'RGB' mode
+            logger.info(f"Converted prediction indices to COLOR PIL image (mode: {predicted_mask_pil.mode})")
+
+            try:
+                filename = f"output_mask.png"
+                save_path = os.path.join(OUTPUT_SAVE_DIR, filename)
+                predicted_mask_pil.save(save_path)
+                logger.info(f"Successfully saved output mask to '{save_path}'")
+            except Exception as save_e:
+                # Log error but don't crash the request if saving fails
+                logger.error(f"Failed to save output mask image to {OUTPUT_SAVE_DIR}: {save_e}")
+            # --- END SAVING LOGIC ---
+            
+        except TypeError as te:
+             logger.exception(f"TypeError converting tensor to PIL: {te}")
+             return jsonify({"error": f"Internal error converting prediction: {te}"}), 500
+        except Exception as pil_e:
+             logger.exception(f"Error during PIL conversion or saving output mask: {pil_e}")
+             return jsonify({"error": f"Internal error processing output mask: {pil_e}"}), 500
+        # --- END SAVE LOGIC ---
+
+
+        # 5. Postprocess Predicted Mask
+        #predicted_mask_pil = TF.to_pil_image(predicted_mask_tensor.cpu())
+
+        # 6. Encode Predicted Mask to Base64
+        predicted_mask_b64 = encode_pil_to_base64(predicted_mask_pil)
 
         logger.info("Segmentation successful.")
+        # 7. Return JSON including the predicted mask AND the original label (if provided)
         return jsonify({
-            "output_label_b64": output1_b64,
-            "output_mask_b64": output2_b64,
+            "output_label_b64": uploaded_label_b64, # Pass back the original label B64
+            "output_mask_b64": predicted_mask_b64,  # The mask generated by the model
             "message": "Segmentation successful."
         })
 
     except Exception as e:
-        logger.exception(f"Error during segmentation processing: {e}") # Log full traceback
+        logger.exception(f"Error during segmentation processing: {e}")
         return jsonify({"error": f"An internal error occurred: {e}"}), 500
-
 
 # --- Run Flask App ---
 if __name__ == '__main__':
-    # Set host='0.0.0.0' to make it accessible on your network (use with caution)
-    app.run(debug=True, host='127.0.0.1', port=5000) # debug=True for development
+    app.run(debug=True, host='127.0.0.1', port=5000)
+
+
+
+

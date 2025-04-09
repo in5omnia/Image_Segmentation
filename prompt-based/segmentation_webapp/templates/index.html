@@ -13,7 +13,12 @@
     <div class="container">
         <div class="controls">
             <label for="imageUpload">Upload Image:</label>
-            <input type="file" id="imageUpload" accept="image/*"><br><br>
+            <input type="file" id="imageUpload" accept="image/*"><br>
+
+            <!-- Added Optional Label Upload -->
+            <label for="labelUpload">Upload Label (Optional):</label>
+            <input type="file" id="labelUpload" accept="image/*"><br><br>
+            <!-- End Added Section -->
 
             <label>Prompt Type:</label><br>
             <input type="radio" id="promptPoints" name="promptType" value="points" checked>
@@ -38,10 +43,8 @@
 
         <div class="image-area">
             <p>Interaction Area:</p>
-            <!-- Container to overlay canvas on image -->
             <div id="canvasContainer">
                  <img id="uploadedImage" src="#" alt="Uploaded Image" style="display: none; max-width: 100%; max-height: 500px;"/>
-                 <!-- Canvas for drawing prompts -->
                  <canvas id="promptCanvas"></canvas>
             </div>
         </div>
@@ -49,10 +52,12 @@
         <div class="results">
             <p>Outputs:</p>
             <div class="output-pair">
-                 <div class="output-image">
-                     <label>Label Output:</label><br>
-                     <img id="outputLabel" src="#" alt="Output Label" style="display: none;"/>
+                 <!-- Wrapped Label Output -->
+                 <div class="output-image" id="labelOutputArea" style="display: none;">
+                     <label>Label Output (Generated):</label><br>
+                     <img id="outputLabel" src="#" alt="Output Label"/>
                  </div>
+                 <!-- End Wrapped Section -->
                  <div class="output-image">
                      <label>Mask Output:</label><br>
                      <img id="outputMask" src="#" alt="Output Mask" style="display: none;"/>
