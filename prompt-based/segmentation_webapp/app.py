@@ -9,15 +9,15 @@ import io
 import logging
 
 
-from prompt_model import SegmentationAutoencoder
+from prompt_model import PromptModel #SegmentationAutoencoder
 from utils import *
 
 # --- Configuration ---
-#MODEL_PATH ="autoencoder_256_with_aug_noAugEnc_weight2_ce_dice_adamw_64.pytorch" # Default model path
-MODEL_PATH = "/Users/beatrizgavilan/Desktop/Assignments/CV/Image_Segmentation/prompt-based/autoencoderSeg_256_withAug_ce_dice_weight2.pytorch"
+MODEL_PATH ="/Users/beatrizgavilan/Desktop/Assignments/CV/Image_Segmentation/prompt-based/prompt_256_ce_dice_weight_full_forwebapp.pytorch" 
+#MODEL_PATH = "/Users/beatrizgavilan/Desktop/Assignments/CV/Image_Segmentation/prompt-based/autoencoderSeg_256_withAug_ce_dice_weight2.pytorch"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 INTERPOLATION = 'bilinear'
-TARGET_SIZE = 256
+TARGET_SIZE = 224
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # --- Load Model ---
 try:
-    model = SegmentationAutoencoder(3, num_classes=4, freeze_encoder=False).to(DEVICE)
+    model = PromptModel(path=None).to(DEVICE)
     if os.path.exists(MODEL_PATH):
         # Load state dict if your Network class matches the saved structure
         # Load the checkpoint dictionary; move tensors to the correct device
@@ -37,9 +37,10 @@ try:
         logger.info(f"Model succesfully initialized.")
     else:
         logger.warning(f"Model file '{MODEL_PATH}' not found. Using untrained placeholder model.")
+    
     model.eval() # Set to evaluation mode
 except Exception as e:
-    logger.error(f"Error loading model: {e}")
+    logger.error(f"Error loading model.")
     model = None
 
 # --- Helper Functions (decode_base64_image, encode_pil_to_base64, create_prompt_mask) ---
@@ -134,7 +135,8 @@ def segment_image():
     # Check for essential fields
     required_fields = ['image_b64', 'prompt_type', 'prompt_data', 'original_width', 'original_height']
     if not all(field in data for field in required_fields):
-        logger.warning(f"Missing fields. Received: {list(data.keys())}")
+        logger.warning(f"Missing fields. ")
+        #logger.warning(f"Missing fields. Received: {list(data.keys())}")
         return jsonify({"error": "Missing required fields in request"}), 400
 
     # Get optional label data
@@ -158,7 +160,7 @@ def segment_image():
         img_tensor = TF.to_tensor(original_image).unsqueeze(0).to(DEVICE)
         prompt_tensor = TF.to_tensor(prompt_mask).unsqueeze(0).to(DEVICE)
         assert img_tensor.shape[2:] == prompt_tensor.shape[2:]
-        model_input = torch.cat([img_tensor, prompt_tensor], dim=1)
+        #model_input = torch.cat([img_tensor, prompt_tensor], dim=1)
 
         # --- SAVE THE INPUT IMAGE ---
         """OUTPUT_SAVE_DIR = "output_masks"
@@ -186,11 +188,14 @@ def segment_image():
         # 4. Run Model Inference - Expecting ONE output tensor
         with torch.no_grad():
             resized_model_input, meta_list = process_batch_forward(img_tensor, target_size=TARGET_SIZE)   # resize X for network
-            resized_model_input = resized_model_input.to(DEVICE)
+            resized_prompt_input, _ = process_batch_forward(prompt_tensor, target_size=TARGET_SIZE) # resize prompt for network
+            resized_model_input, resized_prompt_input = resized_model_input.to(DEVICE), resized_prompt_input.to(DEVICE)
 
             print("resized_model_input.shape", resized_model_input.shape)
+            print("resized_prompt_input.shape", resized_prompt_input.shape)
+
             # Compute prediction
-            model_output = model(resized_model_input)
+            model_output = model(resized_model_input, resized_prompt_input)
             logger.info(f"HEREEEE1 Model output shape: {model_output.shape}")
 
             model_output = process_batch_reverse(model_output, meta_list, interpolation=INTERPOLATION)
