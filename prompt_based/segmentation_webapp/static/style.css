@@ -1,0 +1,202 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    line-height: 1.5;
+    margin: 0; /* Remove default margin */
+    background-color: #f8f9fa; /* Light background */
+    color: #212529; /* Dark text */
+}
+
+h1 {
+    text-align: center;
+    margin: 20px 0;
+    color: #343a40;
+}
+
+/* --- Top Bar Styles --- */
+.top-bar {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    align-items: center; /* Vertically align items */
+    justify-content: space-between; /* Distribute space */
+    padding: 10px 20px;
+    background-color: #e9ecef; /* Light grey background */
+    border-bottom: 1px solid #dee2e6; /* Subtle border */
+    gap: 15px; /* Space between sections */
+}
+
+.top-bar > div { /* Style direct children divs */
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space within sections */
+}
+
+.top-bar label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.top-bar input[type="file"] {
+    max-width: 150px; /* Limit file input width */
+}
+
+.top-bar .model-selection label { /* Labels for radio buttons */
+    font-weight: normal;
+    margin-right: 0;
+    margin-left: 2px;
+}
+
+.top-bar .actions button {
+    margin-top: 0; /* Remove top margin from buttons */
+}
+
+.top-bar #status {
+    margin-top: 0;
+    margin-left: auto; /* Push status to the right if space allows */
+    font-weight: normal;
+    font-style: italic;
+    color: #6c757d; /* Grey text for status */
+    text-align: right;
+    flex-shrink: 0; /* Prevent status from shrinking too much */
+}
+
+/* --- Legend Container (Below Top Bar) --- */
+.legend-container {
+    padding: 10px 20px;
+    margin: 15px 20px; /* Add margin */
+    border: 1px solid #dee2e6;
+    background-color: #fff;
+    border-radius: 4px;
+}
+
+.legend-container h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #495057;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+.legend-color-box {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    margin-right: 8px;
+    border: 1px solid #adb5bd;
+}
+
+
+/* --- Main Content Area (3 Columns) --- */
+.main-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr; /* Fixed 3 equal columns */
+    gap: 20px;
+    padding: 0 20px 20px 20px; /* Add padding */
+}
+
+.image-column {
+    border: 1px solid #dee2e6;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #fff;
+    text-align: center; /* Center label */
+    min-height: 300px; /* Ensure columns have height even when empty */
+    /* Removed flexbox properties to simplify layout */
+}
+
+.image-column label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #495057;
+}
+
+.image-column img {
+    max-width: 100%; /* Make images responsive */
+    height: auto;
+    border: 1px solid #e9ecef; /* Light border for images */
+    margin-top: 5px;
+    display: block; /* Ensure image is block level */
+    margin-left: auto; /* Center image block */
+    margin-right: auto;
+}
+
+/* --- Canvas Container & Canvas --- */
+
+#canvasContainer {
+    position: relative; /* Crucial for overlay */
+    width: 100%; /* Occupy column width */
+    max-width: 100%; /* Ensure it doesn't overflow */
+    margin: 0 auto; /* Center the container */
+    margin-top: 10px; /* Space below label */
+    line-height: 0; /* Remove extra space below image/canvas */
+}
+
+#uploadedImage {
+     display: block;
+     max-width: 100%;
+     height: auto;
+     margin: 0 auto; /* Center image within the container */
+}
+
+
+#promptCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: default; /* Default cursor */
+    /* Background added for debugging canvas position */
+    /* background-color: rgba(0, 255, 0, 0.1); */
+}
+
+/* --- General Element Styling --- */
+
+
+button {
+    padding: 8px 15px;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+#segmentBtn {
+    background-color: #28a745; /* Green */
+    color: white;
+    border-color: #28a745;
+}
+#segmentBtn:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+#clearBtn {
+    background-color: #dc3545; /* Red */
+    color: white;
+    border-color: #dc3545;
+}
+#clearBtn:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+input[type="file"] {
+    border: 1px solid #ced4da;
+    padding: 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+input[type="radio"] {
+    margin-right: 2px;
+}
+
+/* Remove old grid/column styles */
+/* .output-grid, .output-column styles removed */
+
+/* Legend styles moved up */

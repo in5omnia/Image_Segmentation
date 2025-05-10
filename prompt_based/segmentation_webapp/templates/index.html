@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Segmentation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Interactive Segmentation Tool</h1>
+    <!-- Removed paragraph -->
+
+    <div class="top-bar">
+        <div class="file-inputs">
+            <label for="imageUpload">Upload Image:</label>
+            <input type="file" id="imageUpload" accept="image/*">
+            <label for="labelUpload">Upload Label (Optional):</label>
+            <input type="file" id="labelUpload" accept="image/*">
+        </div>
+        <div class="model-selection">
+            <label>Model Type:</label>
+            <input type="radio" id="modelUnet" name="modelType" value="unet" checked>
+            <label for="modelUnet">UNet</label>
+            <input type="radio" id="modelAutoencoder" name="modelType" value="autoencoder">
+            <label for="modelAutoencoder">Autoencoder</label>
+            <input type="radio" id="modelClip" name="modelType" value="clip">
+            <label for="modelClip">Clip</label>
+            <input type="radio" id="modelPrompt" name="modelType" value="prompt_model" data-requires-prompt="true">
+            <label for="modelPrompt">Prompt Model (Points)</label>
+        </div>
+        <div class="actions">
+            <button id="segmentBtn">Segment</button>
+            <button id="clearBtn">Clear</button>
+        </div>
+        <p id="status">Status: Waiting for image...</p>
+        <!-- Text prompt section removed as it wasn't used -->
+    </div>
+
+    <!-- Legend moved below top bar -->
+    <div id="legendContainer" class="legend-container" style="display: none;">
+        <h4>Legend:</h4>
+        <!-- Legend items will be populated by JavaScript -->
+    </div>
+
+    <div class="main-content">
+
+        <!-- Column 1: Original Image & Interaction -->
+        <div class="image-column" id="originalImageColumn">
+            <label>Original Image / Interaction Area:</label>
+            <div id="canvasContainer">
+                 <img id="uploadedImage" src="#" alt="Uploaded Image" style="display: none;"/>
+                 <canvas id="promptCanvas"></canvas>
+            </div>
+        </div>
+ 
+        <!-- Column 2: Predicted Mask -->
+        <div class="image-column" id="predictedMaskColumn">
+             <label>Predicted Mask:</label>
+             <img id="outputMask" src="#" alt="Predicted Mask" style="display: none;"/>
+        </div>
+
+        <!-- Column 3: Ground Truth Mask -->
+        <div class="image-column" id="groundTruthColumn">
+             <label>Ground Truth Mask:</label>
+             <img id="outputGroundTruth" src="#" alt="Ground Truth Mask" style="display: none;"/>
+        </div>
+        <!-- Removed redundant/old output elements -->
+    </div> <!-- Close main-content -->
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

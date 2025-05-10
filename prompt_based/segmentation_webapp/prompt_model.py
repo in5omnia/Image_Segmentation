@@ -1,15 +1,11 @@
 import torch
 from torch import nn
+import matplotlib.pyplot as plt
+import torch
+from torch import nn
+from clipunet import ClipUNet
 
 class DoubleConvReLU(nn.Module):
-    """
-    Applies two convolutional layers with ReLU activation and batch normalization.
-    Args:
-        din (int): Number of input channels.
-        dout (int): Number of output channels.
-    Returns:
-        torch.Tensor: Output tensor after applying the double convolution with ReLU.
-    """
     def __init__(self, din, dout):
         super().__init__()
         self.doubleConvReLU = nn.Sequential(
@@ -20,20 +16,14 @@ class DoubleConvReLU(nn.Module):
             nn.BatchNorm2d(dout),
             nn.ReLU(),
         )
-    
+
     def forward(self, x):
         return self.doubleConvReLU(x)
-    
+
 
 class Down(nn.Module):
-    """
-    Downscales the input using max pooling and applies double convolution.
-    Args:
-        din (int): Number of input channels.
-        dout (int): Number of output channels.
-    Returns:
-        torch.Tensor: Output tensor after downscaling and double convolution.
-    """
+    """Downscaling with maxpool then double conv"""
+
     def __init__(self, din, dout):
         super().__init__()
         self.maxpool_doubleConv = nn.Sequential(
@@ -43,16 +33,10 @@ class Down(nn.Module):
 
     def forward(self, x):
         return self.maxpool_doubleConv(x)
-    
+
 class Up(nn.Module):
-    """
-    Upscales the input using transposed convolution, concatenates with a skip connection, and applies double convolution.
-    Args:
-        din (int): Number of input channels.
-        dout (int): Number of output channels.
-    Returns:
-        torch.Tensor: Output tensor after upscaling, concatenation, and double convolution.
-    """
+    """Upscaling then double conv"""
+
     def __init__(self, din, dout):
         super().__init__()
 
@@ -65,17 +49,9 @@ class Up(nn.Module):
 
 
 class unet(nn.Module):
-    """
-    Implements the U-Net architecture.
-    Args:
-        din (int): Number of input channels.
-        dout (int): Number of output channels.
-    Returns:
-        torch.Tensor: Output tensor after passing through the U-Net.
-    """
     def __init__(self, din, dout):
         super().__init__()
-        self.scale = 1 
+        self.scale = 1
 
         self.down1 = DoubleConvReLU(din, self.scale * 64)
         self.down2 = Down(self.scale * 64, self.scale * 128)
@@ -96,10 +72,49 @@ class unet(nn.Module):
         x3 = self.down3(x2)
         x4 = self.down4(x3)
         x5 = self.down5(x4)
-        
+
         x = self.up1(x4, x5)
         x = self.up2(x3, x)
         x = self.up3(x2, x)
         x = self.up4(x1, x)
 
         return self.output(x)
+    
+
+class PromptModel(nn.Module):
+    def __init__(self, path):
+        super().__init__()
+
+        self.clip = ClipUNet()
+        self.mask = unet(4, 1)
+        self.softmax = nn.Softmax(dim=1)
+        self.sigmoid = nn.Sigmoid()
+
+        if path is not None:
+            try:
+                checkpoint = torch.load(path, weights_only=False, map_location=lambda storage, loc: storage) # Load to CPU initially
+                self.clip.load_state_dict(checkpoint["model_state_dict"])
+            except Exception as e:
+                print(f"Error loading checkpoint: {str(e)[:200]}")
+                raise
+            
+        # for param in self.clip.parameters():
+        #     param.requires_grad = False
+
+    def forward(self, x, heatmap):
+        clip_logit = self.clip(x)
+        clip_prob = self.softmax(clip_logit)
+
+        mask_logit = self.mask(torch.concat([x, heatmap], dim=1))
+        mask_prob = self.sigmoid(mask_logit)
+
+        final_probs = torch.empty_like(clip_prob)
+        selected_prob = mask_prob * clip_prob
+
+        final_probs[:, 1:4, :, :] = selected_prob[:, 0:3, :, :]
+        final_probs[:, 0:1, :, :] = 1.0 - mask_prob
+        final_probs[:, 1:2, :, :] += selected_prob[:, 3:4, :, :]
+
+        # log_final_probs = torch.log(final_probs + 1e-9)
+
+        return final_probs
